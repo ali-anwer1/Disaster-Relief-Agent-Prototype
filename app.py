@@ -10,7 +10,6 @@ from agent import SYSTEM_PROMPT
 
 def init_agent(api_key):
     """Initializes the Gemini agent with the provided API key."""
-    # Temporarily set the environment variable for the client (if needed)
     if api_key:
         os.environ["GEMINI_API_KEY"] = api_key
         
@@ -22,8 +21,7 @@ def init_agent(api_key):
         temperature=0.1,  
     )
     
-    chat_session = client.chats.create(model=model_name, config=config)
-    return chat_session
+    return client, model_name, config
 
 def parse_file(uploaded_file):
     """Reads a CSV or Excel file and converts it to a string format."""
@@ -113,11 +111,15 @@ if run_agent:
     else:
         with st.spinner("Processing disaster coordination logistics..."):
             try:
-                chat_session = init_agent(api_key_input)
+                client, model_name, config = init_agent(api_key_input)
                 # Combine the strict trigger phrase with the user's data
                 full_prompt = f"{mode_selection}:\n\n{user_data}"
                 
-                response = chat_session.send_message(full_prompt)
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=full_prompt,
+                    config=config
+                )
                 
                 st.session_state['last_response'] = response.text
                 st.success("Analysis Complete!")
