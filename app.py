@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import urllib.parse
+import io
 from google import genai
 from google.genai import types
 
@@ -64,17 +65,24 @@ with st.sidebar:
 
     st.markdown("---")
     st.header("📲 Output Formats")
-    st.info("The agent strictly outputs WhatsApp-ready formatting (bullets, emojis, no markdown tables) for rapid field deployment.")
+    st.info("You can now choose between a WhatsApp-ready message, a strictly formatted CSV table, or both.")
 
 # Main area
 mode_col, input_col = st.columns([1, 2])
 
 with mode_col:
-    st.subheader("1. Select Mode")
+    st.subheader("1. Select Settings")
     mode_selection = st.radio(
         "Operation Mode:",
         ["MATCH RESOURCES", "DEPLOY VOLUNTEERS"],
         help="Select the exact trigger phrase required by the agent."
+    )
+    
+    st.markdown("---")
+    output_format = st.radio(
+        "Output Format:",
+        ["WhatsApp Message", "CSV Table", "Both (WhatsApp + CSV)"],
+        help="Choose the desired format for the agent's output."
     )
 
 with input_col:
@@ -112,8 +120,18 @@ if run_agent:
         with st.spinner("Processing disaster coordination logistics..."):
             try:
                 client, model_name, config = init_agent(api_key_input)
-                # Combine the strict trigger phrase with the user's data
-                full_prompt = f"{mode_selection}:\n\n{user_data}"
+                
+                # Determine format tag
+                format_tag = ""
+                if output_format == "WhatsApp Message":
+                    format_tag = "[FORMAT: WHATSAPP]"
+                elif output_format == "CSV Table":
+                    format_tag = "[FORMAT: CSV]"
+                elif output_format == "Both (WhatsApp + CSV)":
+                    format_tag = "[FORMAT: BOTH]"
+
+                # Combine the strict trigger phrase with the user's data and format tag
+                full_prompt = f"{mode_selection}:\n\n{user_data}\n\n{format_tag}"
                 
                 response = client.models.generate_content(
                     model=model_name,
@@ -122,57 +140,92 @@ if run_agent:
                 )
                 
                 st.session_state['last_response'] = response.text
+                st.session_state['last_format'] = output_format
                 st.success("Analysis Complete!")
                 
             except Exception as e:
                 st.error(f"Error communicating with Gemini: {e}")
+
+# Helper for rendering WhatsApp button
+def render_whatsapp_button(text):
+    encoded_text = urllib.parse.quote(text)
+    whatsapp_url = f"https://wa.me/?text={encoded_text}"
+    st.markdown(
+        f'''
+        <a href="{whatsapp_url}" target="_blank" style="text-decoration:none;">
+            <button style="
+                background-color:#25D366; 
+                color:white; 
+                border:none; 
+                padding: 0.5rem 1rem; 
+                border-radius: 0.25rem; 
+                cursor:pointer;
+                font-weight:600;
+                width: 100%;
+                margin-top: 10px;
+                margin-bottom: 20px;
+            ">
+                💬 Share to WhatsApp
+            </button>
+        </a>
+        ''',
+        unsafe_allow_html=True
+    )
 
 # Display Output
 if 'last_response' in st.session_state:
     st.markdown("---")
     st.subheader("📋 Agent Output")
     
-    # We display the raw text rather than markdown to preserve the exact WhatsApp formatting
-    # However, st.markdown handles most of it fine, but we'll use a code block or text area for exact copy-pasting
-    
     response_text = st.session_state['last_response']
-    st.text_area("Copy directly:", response_text, height=400)
+    used_format = st.session_state.get('last_format', "WhatsApp Message")
     
-    st.markdown("### Export Options")
-    col1, col2, _ = st.columns([1, 1, 2])
-    
-    with col1:
-        # Download as TXT
+    if used_format == "WhatsApp Message":
+        st.text_area("WhatsApp Message (Copy directly):", response_text, height=300)
+        render_whatsapp_button(response_text)
+        
+    elif used_format == "CSV Table":
+        st.text_area("Raw CSV Data:", response_text, height=200)
+        try:
+            # Attempt to render CSV as a dataframe for visualization
+            df_out = pd.read_csv(io.StringIO(response_text))
+            st.dataframe(df_out, use_container_width=True)
+        except Exception as e:
+            st.warning("Could not render CSV as a table. Please check the raw data above.")
+            
         st.download_button(
-            label="📄 Download as Text",
+            label="📥 Download as CSV",
             data=response_text,
-            file_name="nadma_coordination_plan.txt",
-            mime="text/plain",
+            file_name="nadma_coordination_plan.csv",
+            mime="text/csv",
             use_container_width=True
         )
         
-    with col2:
-        # WhatsApp URL encoding
-        encoded_text = urllib.parse.quote(response_text)
-        whatsapp_url = f"https://wa.me/?text={encoded_text}"
-        
-        # We use HTML to create a link shaped like a button
-        st.markdown(
-            f'''
-            <a href="{whatsapp_url}" target="_blank" style="text-decoration:none;">
-                <button style="
-                    background-color:#25D366; 
-                    color:white; 
-                    border:none; 
-                    padding: 0.5rem 1rem; 
-                    border-radius: 0.25rem; 
-                    cursor:pointer;
-                    font-weight:600;
-                    width: 100%;
-                ">
-                    💬 Share to WhatsApp
-                </button>
-            </a>
-            ''',
-            unsafe_allow_html=True
-        )
+    elif used_format == "Both (WhatsApp + CSV)":
+        if "---CSV_START---" in response_text:
+            parts = response_text.split("---CSV_START---")
+            whatsapp_part = parts[0].strip()
+            csv_part = parts[1].strip() if len(parts) > 1 else ""
+            
+            st.markdown("#### WhatsApp Message")
+            st.text_area("Copy directly:", whatsapp_part, height=250)
+            render_whatsapp_button(whatsapp_part)
+            
+            st.markdown("#### CSV Data")
+            try:
+                df_out = pd.read_csv(io.StringIO(csv_part))
+                st.dataframe(df_out, use_container_width=True)
+            except Exception as e:
+                st.text_area("Raw CSV (Render failed):", csv_part, height=150)
+                
+            st.download_button(
+                label="📥 Download CSV File",
+                data=csv_part,
+                file_name="nadma_coordination_plan.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        else:
+            # Fallback if the agent failed to use the exact delimiter
+            st.warning("Agent failed to separate the formats clearly. Here is the raw output:")
+            st.text_area("Raw Output:", response_text, height=400)
