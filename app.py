@@ -15,14 +15,13 @@ def init_agent(api_key):
         os.environ["GEMINI_API_KEY"] = api_key
         
     client = genai.Client()
-    model_name = "gemini-3.5-flash"  # Using the user's requested model
     
     config = types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT,
         temperature=0.1,  
     )
     
-    return client, model_name, config
+    return client, config
 
 def parse_file(uploaded_file):
     """Reads a CSV or Excel file and converts it to a string format."""
@@ -62,6 +61,19 @@ with st.sidebar:
         api_key_input = st.text_input("Gemini API Key", type="password", help="Enter your Gemini API Key")
         if not api_key_input:
             st.warning("Please enter your API Key to use the agent.")
+
+    st.markdown("---")
+    st.header("🧠 Model Selection")
+    selected_model = st.selectbox(
+        "Choose an AI Model:",
+        [
+            "gemini-3.6-flash",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite"
+        ],
+        index=0,
+        help="Select a different model if the current one is experiencing high demand or quota limits."
+    )
 
     st.markdown("---")
     st.header("📲 Output Formats")
@@ -119,7 +131,7 @@ if run_agent:
     else:
         with st.spinner("Processing disaster coordination logistics..."):
             try:
-                client, model_name, config = init_agent(api_key_input)
+                client, config = init_agent(api_key_input)
                 
                 # Determine format tag
                 format_tag = ""
@@ -134,7 +146,7 @@ if run_agent:
                 full_prompt = f"{mode_selection}:\n\n{user_data}\n\n{format_tag}"
                 
                 response = client.models.generate_content(
-                    model=model_name,
+                    model=selected_model,
                     contents=full_prompt,
                     config=config
                 )
