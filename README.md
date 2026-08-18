@@ -1,5 +1,5 @@
 # Disaster-Relief-Agent-Prototype
-Vibecode oblivion
+Vibecode oblivion (for Pepper Lab's k-Youth bootcamp project)
 1. Built entirely using Antigravity IDE and Gemini 3.1 Pro as a test to create an AI agent with a functioning dashboard in a few minutes.
 2. Scrapes through unstructured data in the form of a whatsapp message or a csv file and returns either a whatsapp message or a csv file that either matches resources or volunteers to the desired location with the help of AI.
 3. Uses Gemini to perform these tasks as it is the only mainstream AI that provides free API keys which can be used at least a dozen or so times before it becomes limited.
