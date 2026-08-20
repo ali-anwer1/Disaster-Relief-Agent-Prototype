@@ -6,3 +6,4 @@ Vibecode oblivion (for Pepper Lab's k-Youth bootcamp project)
 4. The dashboard was created using Streamlit and its associated python library as it is a lightweight framework and is simple to use compared to React etc. (at least according to my Antigravity agent).
 5. The agent can also be used directly through a python terminal with agent.py, though if one were to use this program in all its glory then fork this repo and host it with Streamlit (using app.py), share it with your friend if you'd like.
 6. agent.py is primarily used to store the meticulously engineered prompt through the effort of dozens of prompt fine-tuning trials with Claude.
+7. A zip file containing dummy input csv data has been provided for testing purposes, one folder contains data to deploy volunteers according to where they are needed most and another folder contains data of available supplies and which communities require them urgently.
